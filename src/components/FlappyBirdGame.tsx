@@ -11,6 +11,7 @@ import birdUpImg from '@/assets/birdUp.png';
 import birdDeadImg from '@/assets/birdDead.png';
 import pipeTopImg from '@/assets/pipeTop.png';
 import pipeBottomImg from '@/assets/pipeBottom.png';
+import { useBedrockPassport, LoginPanel } from "@bedrock_org/passport";
 
 // Debug log imports
 console.log('Bird image imports:', {
@@ -75,15 +76,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   
   // Update bird image based on state
   const currentBirdImage = useCallback(() => {
-    switch (birdState) {
-      case 'up':
-        return birdUpImg;
-      case 'dead':
-        return birdDeadImg;
-      default:
-        return birdImg;
-    }
-  }, [birdState]);
+    return birdImageSrc;
+  }, [birdImageSrc]);
   
   // Update loadImages function to use current bird state
   const loadImages = useCallback(() => {
@@ -93,18 +87,20 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     
     // Load background texture
     bgImageRef.current = new Image();
+    bgImageRef.current.crossOrigin = "anonymous";
     bgImageRef.current.src = backgroundImage;
     bgImageRef.current.onload = () => {
-      console.log('Background image loaded successfully:', {
-        width: bgImageRef.current?.width,
-        height: bgImageRef.current?.height,
-        src: bgImageRef.current?.src
-      });
       setBgImageLoaded(true);
+      console.log('Background image loaded successfully:', bgImageRef.current?.src);
     };
     bgImageRef.current.onerror = (error) => {
-      console.error('Failed to load background image:', error);
       setBgImageLoaded(false);
+      console.error('Failed to load background image:', backgroundImage, error);
+      // Fallback to default background image
+      bgImageRef.current.src = backgroundImg;
+      // Try to load the default image
+      bgImageRef.current.onload = () => setBgImageLoaded(true);
+      bgImageRef.current.onerror = () => setBgImageLoaded(false);
     };
     
     // Load bird image based on state
@@ -145,7 +141,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     
     // Initialize mute state
     setIsMuted(soundManager.getMuteState());
-  }, []);
+  }, [backgroundImage, birdImageSrc, loadImages]);
   
   const pipesRef = useRef<Array<{
     x: number, 
@@ -224,6 +220,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     });
   }, []);
   
+  const frameCountRef = useRef(0);
+  
   const startGame = useCallback(() => {
     soundManager.stopBackgroundMusic(); // Stop background music when game starts
     soundManager.play('start');
@@ -242,6 +240,9 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       frameCount: 0,
     };
     pipesRef.current = [];
+    setIsMenuOpen(false); // Ensure menu is closed when game starts
+    frameCountRef.current = 0; // Reset frame count
+    console.log('Game started!');
   }, []);
   
   // Separate function to handle game over
@@ -332,6 +333,29 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     };
   }, [handleKeyDown, handleTouchStart]);
   
+  // Utility: Detect mobile device
+  const isMobile = typeof window !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+  
+  // Mobile scaling and physics adjustments
+  // Lower the mobile canvas resolution for performance
+  const MOBILE_CANVAS_WIDTH = 240;
+  const MOBILE_CANVAS_HEIGHT = 360;
+  const MOBILE_SCALE = isMobile ? 0.42 : 1; // 240/570 ≈ 0.42
+  const MOBILE_BIRD = {
+    width: 60 * MOBILE_SCALE,
+    height: 45 * MOBILE_SCALE,
+    gravity: isMobile ? 0.55 : 0.35,
+    flapStrength: isMobile ? -9.5 : -7.5,
+    x: 50 * MOBILE_SCALE,
+    y: 150 * MOBILE_SCALE
+  };
+  const MOBILE_PIPE = {
+    minWidth: 60 * MOBILE_SCALE,
+    maxWidth: 80 * MOBILE_SCALE,
+    gap: 160 * MOBILE_SCALE,
+    minPipeHeight: 60 * MOBILE_SCALE
+  };
+  
   useEffect(() => {
     if (!bgImageLoaded || !birdImageLoaded) {
       console.log('Game loop waiting for:', {
@@ -341,7 +365,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       return;
     }
     
-    let frameCount = 0;
     let animationFrameCount = 0;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -350,28 +373,67 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     // Define groundHeight here so it's available throughout the effect
     const groundHeight = 20;
     
-    // Make canvas fill the container
+    // Make canvas fill the container, but smaller on mobile
     const updateCanvasSize = () => {
       if (canvas) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        if (isMobile) {
+          // Use a much smaller, fixed aspect ratio for mobile
+          canvas.width = MOBILE_CANVAS_WIDTH;
+          canvas.height = MOBILE_CANVAS_HEIGHT;
+        } else {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
       }
     };
     
     updateCanvasSize();
     window.addEventListener('resize', updateCanvasSize);
     
-    const gameLoop = () => {
+    let loopHandle: number | null = null;
+    let lastFrameTime = 0;
+    const mobileFrameDelay = 1000 / 24; // 24 FPS for mobile
+    
+    const gameLoop = (timestamp?: number) => {
+      // Throttle on mobile
+      if (isMobile) {
+        if (timestamp && timestamp - lastFrameTime < mobileFrameDelay) {
+          loopHandle = requestAnimationFrame(gameLoop);
+          return;
+        }
+        lastFrameTime = timestamp || 0;
+      }
       // Clear canvas and set background
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Draw background (simple repeating pattern)
+      // Draw background: blurred/dimmed stretched fill, then aspect-ratio-correct cover
       if (bgImageRef.current) {
-        const pattern = ctx.createPattern(bgImageRef.current, 'repeat');
-        if (pattern) {
-          ctx.fillStyle = pattern;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (!isMobile) {
+          // Desktop: blurred/dimmed stretched fill
+          ctx.save();
+          ctx.filter = 'blur(8px) brightness(0.7)';
+          ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
         }
+        // 2. Aspect-ratio-correct cover (centered, cropped, no stretching)
+        const img = bgImageRef.current;
+        const canvasAspect = canvas.width / canvas.height;
+        const imgAspect = img.width / img.height;
+        let drawWidth, drawHeight, offsetX, offsetY;
+        if (imgAspect > canvasAspect) {
+          // Image is wider than canvas: crop sides
+          drawHeight = canvas.height;
+          drawWidth = img.width * (canvas.height / img.height);
+          offsetX = (canvas.width - drawWidth) / 2;
+          offsetY = 0;
+        } else {
+          // Image is taller than canvas: crop top/bottom
+          drawWidth = canvas.width;
+          drawHeight = img.height * (canvas.width / img.width);
+          offsetX = 0;
+          offsetY = (canvas.height - drawHeight) / 2;
+        }
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
       }
 
       // Draw ground
@@ -385,47 +447,50 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         birdRef.current.y += birdRef.current.velocity;
         
         // Generate pipes with difficulty-based parameters
-        frameCount++;
-        if (frameCount % Math.floor(100 / difficultyRef.current) === 0) {
-          const pipeGap = Math.max(120, pipeGapRef.current - (difficultyRef.current - 1) * 10);
-          const minPipeHeight = 100;
+        frameCountRef.current++;
+        if (frameCountRef.current % Math.floor((isMobile ? 160 : 100) / difficultyRef.current) === 0) {
+          const pipeGap = Math.max(MOBILE_PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10 * MOBILE_SCALE);
+          const minPipeHeight = MOBILE_PIPE.minPipeHeight;
           const maxPipeHeight = canvas.height - groundHeight - pipeGap - minPipeHeight;
           const topHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight)) + minPipeHeight;
-          
-          // Random width between 70 and 90
-          const width = Math.floor(Math.random() * 20) + 70;
-          
-          // Use cached gradient
-          const gradient = createPipeGradient(ctx, width);
-          
+          // Random width between min and max
+          const width = Math.floor(Math.random() * (MOBILE_PIPE.maxWidth - MOBILE_PIPE.minWidth)) + MOBILE_PIPE.minWidth;
+          // No gradients on mobile
+          const gradient = isMobile ? undefined : createPipeGradient(ctx, width);
           pipesRef.current.push({
             x: canvas.width,
             topHeight,
             passed: false,
             width,
             gradient,
-            speed: 3 + (difficultyRef.current - 1)
+            speed: (isMobile ? 4.2 : 3) + (difficultyRef.current - 1) * (isMobile ? 0.7 : 1)
           });
+          // Cap the number of pipes in memory for mobile
+          if (isMobile && pipesRef.current.length > 10) {
+            pipesRef.current = pipesRef.current.slice(-10);
+          }
+          console.log('Pipe generated:', pipesRef.current[pipesRef.current.length - 1]);
         }
       }
       
-      // Update and draw particles
-      particlesRef.current = particlesRef.current.filter(particle => {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.life -= 0.02;
-        
-        if (particle.life > 0) {
-          ctx.fillStyle = particle.color;
-          ctx.globalAlpha = particle.life;
-          ctx.beginPath();
-          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = 1;
-          return true;
-        }
-        return false;
-      });
+      // Update and draw particles (skip on mobile)
+      if (!isMobile) {
+        particlesRef.current = particlesRef.current.filter(particle => {
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.life -= 0.02;
+          if (particle.life > 0) {
+            ctx.fillStyle = particle.color;
+            ctx.globalAlpha = particle.life;
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            return true;
+          }
+          return false;
+        });
+      }
       
       // Update pipe movement with difficulty
       pipesRef.current = pipesRef.current.filter(pipe => {
@@ -435,33 +500,37 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         
         // Draw pipes
         const drawPipe = (x: number, height: number, isTop: boolean) => {
-          // Add shadow
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-          ctx.shadowBlur = 10;
-          ctx.shadowOffsetX = 5;
-          ctx.shadowOffsetY = 5;
-          
-          // Main pipe body with gradient
-          if (pipe.gradient) {
+          // No shadow or gradients on mobile
+          if (!isMobile) {
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 5;
+            ctx.shadowOffsetY = 5;
+          }
+          // Main pipe body with gradient or debug color
+          if (!isMobile && pipe.gradient) {
             ctx.fillStyle = pipe.gradient;
           } else {
-            ctx.fillStyle = '#4EC94E';
+            ctx.fillStyle = '#4EC94E'; // fallback color
           }
           
           if (isTop) {
             // Top pipe
             const pipeHeight = height;
+            console.log('Drawing pipe at', x, 0, pipe.width, pipeHeight);
             ctx.fillRect(x, 0, pipe.width, pipeHeight);
             
             // Reset shadow for decorative elements
-            ctx.shadowColor = 'transparent';
+            if (!isMobile) ctx.shadowColor = 'transparent';
             
             // Pipe cap with gradient (increased height to 25px)
-            const capGradient = ctx.createLinearGradient(x - 5, pipeHeight - 25, x - 5, pipeHeight);
-            capGradient.addColorStop(0, '#2E912E');
-            capGradient.addColorStop(1, '#267A26');
-            ctx.fillStyle = capGradient;
-            ctx.fillRect(x - 5, pipeHeight - 25, pipe.width + 10, 25);
+            if (!isMobile) {
+              const capGradient = ctx.createLinearGradient(x - 5, pipeHeight - 25, x - 5, pipeHeight);
+              capGradient.addColorStop(0, '#2E912E');
+              capGradient.addColorStop(1, '#267A26');
+              ctx.fillStyle = capGradient;
+              ctx.fillRect(x - 5, pipeHeight - 25, pipe.width + 10, 25);
+            }
             
             // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
@@ -474,17 +543,20 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
             // Bottom pipe
             const startY = height;
             const pipeHeight = canvas.height - startY - groundHeight;
+            console.log('Drawing pipe at', x, startY, pipe.width, pipeHeight);
             ctx.fillRect(x, startY, pipe.width, pipeHeight);
             
             // Reset shadow for decorative elements
-            ctx.shadowColor = 'transparent';
+            if (!isMobile) ctx.shadowColor = 'transparent';
             
             // Pipe cap with gradient (increased height to 25px)
-            const capGradient = ctx.createLinearGradient(x - 5, startY, x - 5, startY + 25);
-            capGradient.addColorStop(0, '#2E912E');
-            capGradient.addColorStop(1, '#267A26');
-            ctx.fillStyle = capGradient;
-            ctx.fillRect(x - 5, startY, pipe.width + 10, 25);
+            if (!isMobile) {
+              const capGradient = ctx.createLinearGradient(x - 5, startY, x - 5, startY + 25);
+              capGradient.addColorStop(0, '#2E912E');
+              capGradient.addColorStop(1, '#267A26');
+              ctx.fillStyle = capGradient;
+              ctx.fillRect(x - 5, startY, pipe.width + 10, 25);
+            }
             
             // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
@@ -564,43 +636,42 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         }
       }
       
-      // Update and draw cloud puffs
-      cloudPuffsRef.current = cloudPuffsRef.current.filter(puff => {
-        puff.size += puff.expandSpeed;
-        puff.opacity -= puff.fadeSpeed;
-        
-        if (puff.opacity > 0) {
-          // Draw cloud shape using multiple circles
-          const drawCloudBubble = (offsetX: number, offsetY: number, sizeMultiplier: number) => {
-            ctx.beginPath();
-            ctx.fillStyle = `rgba(255, 255, 255, ${puff.opacity})`;
-            ctx.arc(
-              puff.x + offsetX, 
-              puff.y + offsetY, 
-              puff.size * sizeMultiplier, 
-              0, 
-              Math.PI * 2
-            );
-            ctx.fill();
-          };
+      // Update and draw cloud puffs (skip on mobile)
+      if (!isMobile) {
+        cloudPuffsRef.current = cloudPuffsRef.current.filter(puff => {
+          puff.size += puff.expandSpeed;
+          puff.opacity -= puff.fadeSpeed;
+          if (puff.opacity > 0) {
+            // Draw cloud shape using multiple circles
+            const drawCloudBubble = (offsetX: number, offsetY: number, sizeMultiplier: number) => {
+              ctx.beginPath();
+              ctx.fillStyle = `rgba(255, 255, 255, ${puff.opacity})`;
+              ctx.arc(
+                puff.x + offsetX, 
+                puff.y + offsetY, 
+                puff.size * sizeMultiplier, 
+                0, 
+                Math.PI * 2
+              );
+              ctx.fill();
+            };
 
-          // Create cloud shape with multiple overlapping circles
-          drawCloudBubble(0, 0, 1);           // Center
-          drawCloudBubble(-puff.size/2, 0, 0.7);  // Left
-          drawCloudBubble(puff.size/2, 0, 0.7);   // Right
-          drawCloudBubble(0, -puff.size/3, 0.6);  // Top
-          drawCloudBubble(0, puff.size/3, 0.6);   // Bottom
-          
-          // Add some smaller detail bubbles
-          drawCloudBubble(-puff.size/1.5, -puff.size/4, 0.4);
-          drawCloudBubble(puff.size/1.5, -puff.size/4, 0.4);
-          drawCloudBubble(-puff.size/3, puff.size/2, 0.3);
-          drawCloudBubble(puff.size/3, puff.size/2, 0.3);
-          
-          return true;
-        }
-        return false;
-      });
+            // Create cloud shape with multiple overlapping circles
+            drawCloudBubble(0, 0, 1);           // Center
+            drawCloudBubble(-puff.size/2, 0, 0.7);  // Left
+            drawCloudBubble(puff.size/2, 0, 0.7);   // Right
+            drawCloudBubble(0, -puff.size/3, 0.6);  // Top
+            drawCloudBubble(0, puff.size/3, 0.6);   // Bottom
+            // Add some smaller detail bubbles
+            drawCloudBubble(-puff.size/1.5, -puff.size/4, 0.4);
+            drawCloudBubble(puff.size/1.5, -puff.size/4, 0.4);
+            drawCloudBubble(-puff.size/3, puff.size/2, 0.3);
+            drawCloudBubble(puff.size/3, puff.size/2, 0.3);
+            return true;
+          }
+          return false;
+        });
+      }
       
       // Game over
       if (gameOver) {
@@ -608,16 +679,25 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       }
       
       if (!gameOver) {
+        if (isMobile) {
+          loopHandle = requestAnimationFrame(gameLoop);
+        } else {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
+        }
       }
     };
-    
+    if (isMobile) {
+      loopHandle = requestAnimationFrame(gameLoop);
+    } else {
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-    
+    }
     return () => {
       window.removeEventListener('resize', updateCanvasSize);
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
+      }
+      if (loopHandle) {
+        cancelAnimationFrame(loopHandle);
       }
     };
   }, [gameStarted, gameOver, score, bgImageLoaded, birdImageLoaded, handleGameOver, isMenuOpen]);
@@ -640,17 +720,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       }
     };
   }, []);
-  
-  // Update bird image separately
-  useEffect(() => {
-    if (birdImageRef.current) {
-      const newSrc = currentBirdImage();
-      if (birdImageRef.current.src !== newSrc) {
-        console.log('Updating bird image to:', newSrc);
-        birdImageRef.current.src = newSrc;
-      }
-    }
-  }, [birdState, currentBirdImage]);
   
   // Update difficulty based on score
   useEffect(() => {
@@ -678,8 +747,61 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     }
   }, [gameStarted, isMenuOpen]);
   
+  useEffect(() => {
+    loadImages();
+  }, [backgroundImage, birdImageSrc, birdState]);
+  
+  useEffect(() => {
+    console.log('backgroundImage updated:', backgroundImage);
+  }, [backgroundImage]);
+  
+  useEffect(() => {
+    console.log('birdImageSrc updated:', birdImageSrc);
+  }, [birdImageSrc]);
+  
+  console.log('Pipes array:', pipesRef.current);
+  
+  // DEV: Bypass OrangeID login for now
+  const isLoggedIn = true;
+  const { signOut } = useBedrockPassport();
+  
   return (
     <div className="flex flex-col items-center justify-center w-full h-full">
+      {/* OrangeID login overlay */}
+      {!isLoggedIn && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/90" style={{backdropFilter: 'blur(4px)'}}>
+          <div className="bg-black/90 rounded-2xl border-2 border-orange-500 p-6 max-w-[480px] w-full flex flex-col items-center">
+            <img
+              src="https://irp.cdn-website.com/e81c109a/dms3rep/multi/orange-web3-logo-v2a-20241018.svg"
+              alt="Orange Web3"
+              className="h-12 mb-4"
+            />
+            <h2 className="text-2xl font-bold text-orange-500 mb-4">Sign in to play</h2>
+            <LoginPanel
+              title="Sign in to"
+              logo="https://irp.cdn-website.com/e81c109a/dms3rep/multi/orange-web3-logo-v2a-20241018.svg"
+              logoAlt="Orange Web3"
+              walletButtonText="Connect Wallet"
+              showConnectWallet={false}
+              separatorText="OR"
+              features={{
+                enableWalletConnect: false,
+                enableAppleLogin: true,
+                enableGoogleLogin: true,
+                enableEmailLogin: false,
+              }}
+              titleClass="text-xl font-bold"
+              logoClass="ml-2 md:h-8 h-6"
+              panelClass="container p-2 md:p-8 rounded-2xl max-w-[480px]"
+              buttonClass="hover:border-orange-500"
+              separatorTextClass="bg-orange-900 text-gray-500"
+              separatorClass="bg-orange-900"
+              linkRowClass="justify-center"
+              headerClass="justify-center"
+            />
+          </div>
+        </div>
+      )}
       {!gameStarted && !gameOver && (
         <div className="text-center z-10 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
           <p className="text-2xl font-bold text-white pixel-font mb-4">
@@ -724,30 +846,51 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
           {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
         </button>
         
+        {/* Hamburger/Menu Button: Larger and always accessible on mobile */}
+        <button 
+          className={`fixed top-4 right-4 z-[1000] bg-black/70 text-white p-3 rounded-full hover:bg-black/90 transition-colors shadow-lg border-2 border-orange-500 ${isMobile ? 'w-16 h-16 text-3xl' : ''}`}
+          style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
+          aria-label="Open customization menu"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMenuOpen(true);
+          }}
+        >
+          <Menu size={isMobile ? 40 : 24} />
+        </button>
+        
         {/* Customization menu */}
-        <Sheet onOpenChange={setIsMenuOpen}>
-          <SheetTrigger asChild>
-            <button 
-              className="absolute top-4 right-4 z-10 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-              aria-label="Open customization menu"
-            >
-              <Menu size={24} />
-            </button>
-          </SheetTrigger>
-          <SheetContent className="w-[400px] sm:w-[540px] bg-black/90 border-orange-500">
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          <SheetContent className="w-[90vw] max-w-[540px] bg-black/90 border-orange-500 z-[1002] flex flex-col h-full">
             <SheetHeader>
               <SheetTitle className="text-orange-500 text-xl pixel-font">Game Customization</SheetTitle>
             </SheetHeader>
-            <GameCustomizationPanel
-              onUpdateBackground={setBackgroundImage}
-              onUpdateBird={setBirdImageSrc}
-            />
+            <div className="flex-1 overflow-y-auto">
+              <GameCustomizationPanel
+                onUpdateBackground={setBackgroundImage}
+                onUpdateBird={setBirdImageSrc}
+                currentBackground={backgroundImage}
+                currentBird={birdImageSrc}
+              />
+            </div>
+            {isLoggedIn && (
+              <Button
+                className="mt-6 mb-2 w-full text-lg font-bold pixel-font bg-white text-black border border-gray-300 hover:bg-gray-100 hover:text-black"
+                onClick={async () => {
+                  await signOut();
+                  setIsMenuOpen(false);
+                }}
+              >
+                Logout
+              </Button>
+            )}
           </SheetContent>
         </Sheet>
         
         <canvas 
           ref={canvasRef} 
           className="w-full h-full cursor-pointer pixel-rendering"
+          style={{ zIndex: 1, pointerEvents: 'none', willChange: 'transform' }}
         />
       </div>
       
