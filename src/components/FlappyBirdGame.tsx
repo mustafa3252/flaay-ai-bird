@@ -128,7 +128,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       });
       setBirdImageLoaded(false);
     };
-  }, [backgroundImage, currentBirdImage, birdState]);
+  }, [backgroundImage, currentBirdImage]);
   
   // Image preloading and initial setup
   useEffect(() => {
@@ -141,7 +141,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     
     // Initialize mute state
     setIsMuted(soundManager.getMuteState());
-  }, [backgroundImage, birdImageSrc, loadImages]);
+  }, [backgroundImage, birdImageSrc]);
   
   const pipesRef = useRef<Array<{
     x: number, 
@@ -255,7 +255,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       x: 50,
       y: 150,
       velocity: 0,
-      gravity: 0.35,
+      gravity: 0.30,
       flapStrength: -7.5,
       width: 60,
       height: 45,
@@ -448,7 +448,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         
         // Generate pipes with difficulty-based parameters
         frameCountRef.current++;
-        if (frameCountRef.current % Math.floor(100 / difficultyRef.current) === 0) {
+        const pipeInterval = isMobile ? Math.floor(50 / difficultyRef.current) : Math.floor(100 / difficultyRef.current);
+        if (frameCountRef.current % pipeInterval === 0) {
           const pipeGap = Math.max(PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10);
           const minPipeHeight = PIPE.minPipeHeight;
           const maxPipeHeight = canvas.height - groundHeight - pipeGap - minPipeHeight;
@@ -728,7 +729,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   
   useEffect(() => {
     loadImages();
-  }, [backgroundImage, birdImageSrc, birdState]);
+  }, [backgroundImage, birdImageSrc]);
   
   useEffect(() => {
     console.log('backgroundImage updated:', backgroundImage);
