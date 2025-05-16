@@ -43,14 +43,16 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   // Remove parallax refs
   
   const gameLoopRef = useRef<number | null>(null);
+  // Utility: Detect mobile device
+  const isMobile = typeof window !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
   const birdRef = useRef({
-    x: 50,
-    y: 150,
+    x: isMobile ? 30 : 50,
+    y: isMobile ? 90 : 150,
     velocity: 0,
-    gravity: 0.35,
-    flapStrength: -7.5,
-    width: 60,
-    height: 45,
+    gravity: isMobile ? 0.55 : 0.35,
+    flapStrength: isMobile ? -9.5 : -7.5,
+    width: isMobile ? 36 : 60,
+    height: isMobile ? 27 : 45,
     frame: 0,
     frameCount: 0,
   });
@@ -229,13 +231,13 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     setGameOver(false);
     setScore(0);
     birdRef.current = {
-      x: 50,
-      y: 150,
+      x: isMobile ? 30 : 50,
+      y: isMobile ? 90 : 150,
       velocity: 0,
-      gravity: 0.35,
-      flapStrength: -7.5,
-      width: 60,
-      height: 45,
+      gravity: isMobile ? 0.55 : 0.35,
+      flapStrength: isMobile ? -9.5 : -7.5,
+      width: isMobile ? 36 : 60,
+      height: isMobile ? 27 : 45,
       frame: 0,
       frameCount: 0,
     };
@@ -243,7 +245,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     setIsMenuOpen(false); // Ensure menu is closed when game starts
     frameCountRef.current = 0; // Reset frame count
     console.log('Game started!');
-  }, []);
+  }, [isMobile]);
   
   // Separate function to handle game over
   const handleGameOver = useCallback(() => {
@@ -332,9 +334,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       window.removeEventListener('touchstart', handleTouchStart);
     };
   }, [handleKeyDown, handleTouchStart]);
-  
-  // Utility: Detect mobile device
-  const isMobile = typeof window !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
   
   // Mobile scaling and physics adjustments
   // Lower the mobile canvas resolution for performance
