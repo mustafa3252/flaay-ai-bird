@@ -43,17 +43,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   // Remove parallax refs
   
   const gameLoopRef = useRef<number | null>(null);
-  const birdRef = useRef({
-    x: 50,
-    y: 150,
-    velocity: 0,
-    gravity: 0.35,
-    flapStrength: -7.5,
-    width: 60,
-    height: 45,
-    frame: 0,
-    frameCount: 0,
-  });
   
   // Define pipeGap constant here so it's available throughout the component
   const pipeGapRef = useRef(160);
@@ -245,27 +234,30 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     minPipeHeight: 60
   };
   
+  // Centralized function for initial bird state
+  function getInitialBird() {
+    return {
+      x: 50,
+      y: 150,
+      velocity: 0,
+      gravity: isMobile ? 0.55 : 0.35,
+      flapStrength: isMobile ? -9.5 : -7.5,
+      width: isMobile ? 40 : 60,
+      height: isMobile ? 30 : 45,
+      frame: 0,
+      frameCount: 0,
+    };
+  }
+
+  const birdRef = useRef(getInitialBird());
+  
   const startGame = useCallback(() => {
     soundManager.stopBackgroundMusic(); // Stop background music when game starts
     soundManager.play('start');
     setGameStarted(true);
     setGameOver(false);
     setScore(0);
-    birdRef.current = {
-      x: 50,
-      y: 150,
-      velocity: 0,
-      gravity: 0.30,
-      flapStrength: -7.5,
-      width: 60,
-      height: 45,
-      frame: 0,
-      frameCount: 0,
-    };
-    if (isMobile) {
-      birdRef.current.width = 40;
-      birdRef.current.height = 30;
-    }
+    birdRef.current = getInitialBird();
     pipesRef.current = [];
     setIsMenuOpen(false); // Ensure menu is closed when game starts
     frameCountRef.current = 0; // Reset frame count
@@ -359,12 +351,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       window.removeEventListener('touchstart', handleTouchStart);
     };
   }, [handleKeyDown, handleTouchStart]);
-  
-  // Also update initial birdRef for mobile
-  if (isMobile) {
-    birdRef.current.width = 40;
-    birdRef.current.height = 30;
-  }
   
   useEffect(() => {
     if (!bgImageLoaded || !birdImageLoaded) {
