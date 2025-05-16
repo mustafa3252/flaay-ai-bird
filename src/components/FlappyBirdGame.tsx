@@ -355,6 +355,11 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     minPipeHeight: 60
   };
   
+  // Add these constants for mobile aspect ratio
+  const MOBILE_ASPECT_RATIO = 9 / 16;
+  const MOBILE_BASE_WIDTH = 360;
+  const MOBILE_BASE_HEIGHT = 640;
+  
   useEffect(() => {
     if (!bgImageLoaded || !birdImageLoaded) {
       console.log('Game loop waiting for:', {
@@ -375,8 +380,27 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     // Make canvas fill the container, but smaller on mobile
     const updateCanvasSize = () => {
       if (canvas) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        if (isMobile) {
+          // Fixed 9:16 aspect ratio for mobile
+          let width = window.innerWidth;
+          let height = window.innerHeight;
+          if (width / height > MOBILE_ASPECT_RATIO) {
+            width = height * MOBILE_ASPECT_RATIO;
+          } else {
+            height = width / MOBILE_ASPECT_RATIO;
+          }
+          canvas.width = MOBILE_BASE_WIDTH;
+          canvas.height = MOBILE_BASE_HEIGHT;
+          canvas.style.width = width + 'px';
+          canvas.style.height = height + 'px';
+          canvas.style.display = 'block';
+          canvas.style.margin = '0 auto';
+        } else {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          canvas.style.width = '100vw';
+          canvas.style.height = '100vh';
+        }
       }
     };
     
@@ -431,15 +455,15 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         
         // Generate pipes with difficulty-based parameters
         frameCountRef.current++;
-        if (frameCountRef.current % Math.floor(100 / difficultyRef.current) === 0) {
+        if (frameCountRef.current % Math.floor(50 / difficultyRef.current) === 0) {
           const pipeGap = Math.max(PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10);
           const minPipeHeight = PIPE.minPipeHeight;
           const maxPipeHeight = canvas.height - groundHeight - pipeGap - minPipeHeight;
           const topHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight)) + minPipeHeight;
           // Random width between min and max
           const width = Math.floor(Math.random() * (PIPE.maxWidth - PIPE.minWidth)) + PIPE.minWidth;
-          // No gradients on mobile
-          const gradient = isMobile ? undefined : createPipeGradient(ctx, width);
+          // Add gradient for all devices
+          const gradient = createPipeGradient(ctx, width);
           pipesRef.current.push({
             x: canvas.width,
             topHeight,
@@ -479,15 +503,13 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         
         // Draw pipes
         const drawPipe = (x: number, height: number, isTop: boolean) => {
-          // No shadow or gradients on mobile
-          if (!isMobile) {
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetX = 5;
-            ctx.shadowOffsetY = 5;
-          }
+          // Add shadow for all devices
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 5;
+          ctx.shadowOffsetY = 5;
           // Main pipe body with gradient or debug color
-          if (!isMobile && pipe.gradient) {
+          if (pipe.gradient) {
             ctx.fillStyle = pipe.gradient;
           } else {
             ctx.fillStyle = '#4EC94E'; // fallback color
@@ -500,16 +522,14 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
             ctx.fillRect(x, 0, pipe.width, pipeHeight);
             
             // Reset shadow for decorative elements
-            if (!isMobile) ctx.shadowColor = 'transparent';
+            ctx.shadowColor = 'transparent';
             
             // Pipe cap with gradient (increased height to 25px)
-            if (!isMobile) {
-              const capGradient = ctx.createLinearGradient(x - 5, pipeHeight - 25, x - 5, pipeHeight);
-              capGradient.addColorStop(0, '#2E912E');
-              capGradient.addColorStop(1, '#267A26');
-              ctx.fillStyle = capGradient;
-              ctx.fillRect(x - 5, pipeHeight - 25, pipe.width + 10, 25);
-            }
+            const capGradient = ctx.createLinearGradient(x - 5, pipeHeight - 25, x - 5, pipeHeight);
+            capGradient.addColorStop(0, '#2E912E');
+            capGradient.addColorStop(1, '#267A26');
+            ctx.fillStyle = capGradient;
+            ctx.fillRect(x - 5, pipeHeight - 25, pipe.width + 10, 25);
             
             // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
@@ -526,16 +546,14 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
             ctx.fillRect(x, startY, pipe.width, pipeHeight);
             
             // Reset shadow for decorative elements
-            if (!isMobile) ctx.shadowColor = 'transparent';
+            ctx.shadowColor = 'transparent';
             
             // Pipe cap with gradient (increased height to 25px)
-            if (!isMobile) {
-              const capGradient = ctx.createLinearGradient(x - 5, startY, x - 5, startY + 25);
-              capGradient.addColorStop(0, '#2E912E');
-              capGradient.addColorStop(1, '#267A26');
-              ctx.fillStyle = capGradient;
-              ctx.fillRect(x - 5, startY, pipe.width + 10, 25);
-            }
+            const capGradient = ctx.createLinearGradient(x - 5, startY, x - 5, startY + 25);
+            capGradient.addColorStop(0, '#2E912E');
+            capGradient.addColorStop(1, '#267A26');
+            ctx.fillStyle = capGradient;
+            ctx.fillRect(x - 5, startY, pipe.width + 10, 25);
             
             // Add highlight
             ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
