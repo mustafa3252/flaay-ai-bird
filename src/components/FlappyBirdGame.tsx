@@ -808,6 +808,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         <button 
           className="absolute top-4 left-4 z-10 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
           onClick={toggleMute}
+          style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
         >
           {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
         </button>
