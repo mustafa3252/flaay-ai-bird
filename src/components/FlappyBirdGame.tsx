@@ -800,7 +800,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       
       <div 
         className="w-full h-full flex items-center justify-center relative"
-        style={{ touchAction: 'none' }}
       >
         {/* Mute button */}
         <button 
@@ -855,7 +854,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         <canvas 
           ref={canvasRef} 
           className="w-full h-full cursor-pointer pixel-rendering"
-          style={{ zIndex: 1, willChange: 'transform' }}
+          style={{ zIndex: 1, willChange: 'transform', touchAction: 'none' }}
           onClick={handleInteraction}
           onTouchStart={(e) => e.preventDefault()}
         />
