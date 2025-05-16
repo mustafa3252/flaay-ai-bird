@@ -803,16 +803,16 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       >
         {/* Mute button */}
         <button 
-          className="absolute top-4 left-4 z-10 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
+          className={`fixed top-4 left-4 z-[1000] bg-black/70 text-white rounded-full hover:bg-black/90 transition-colors shadow-lg border-2 border-orange-500 ${isMobile ? 'w-16 h-16 p-4 text-3xl' : 'w-12 h-12 p-3 text-xl'}`}
           onClick={toggleMute}
           style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
         >
-          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+          {isMuted ? <VolumeX size={isMobile ? 40 : 24} /> : <Volume2 size={isMobile ? 40 : 24} />}
         </button>
         
-        {/* Hamburger/Menu Button: Larger and always accessible on mobile */}
+        {/* Hamburger/Menu Button: Same size as mute button */}
         <button 
-          className={`fixed top-4 right-4 z-[1000] bg-black/70 text-white p-3 rounded-full hover:bg-black/90 transition-colors shadow-lg border-2 border-orange-500 ${isMobile ? 'w-16 h-16 text-3xl' : ''}`}
+          className={`fixed top-4 right-4 z-[1000] bg-black/70 text-white rounded-full hover:bg-black/90 transition-colors shadow-lg border-2 border-orange-500 ${isMobile ? 'w-16 h-16 p-4 text-3xl' : 'w-12 h-12 p-3 text-xl'}`}
           style={{ pointerEvents: 'auto', touchAction: 'manipulation' }}
           aria-label="Open customization menu"
           onClick={(e) => {
@@ -854,7 +854,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         <canvas 
           ref={canvasRef} 
           className="w-full h-full cursor-pointer pixel-rendering"
-          style={{ zIndex: 1, willChange: 'transform', touchAction: 'none' }}
+          style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', zIndex: 1, willChange: 'transform', touchAction: 'none' }}
           onClick={handleInteraction}
           onTouchStart={(e) => e.preventDefault()}
         />
