@@ -448,7 +448,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         
         // Generate pipes with difficulty-based parameters
         frameCountRef.current++;
-        if (frameCountRef.current % Math.floor((isMobile ? 160 : 100) / difficultyRef.current) === 0) {
+        if (frameCountRef.current % Math.floor(100 / difficultyRef.current) === 0) {
           const pipeGap = Math.max(MOBILE_PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10 * MOBILE_SCALE);
           const minPipeHeight = MOBILE_PIPE.minPipeHeight;
           const maxPipeHeight = canvas.height - groundHeight - pipeGap - minPipeHeight;
@@ -465,10 +465,6 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
             gradient,
             speed: (isMobile ? 4.2 : 3) + (difficultyRef.current - 1) * (isMobile ? 0.7 : 1)
           });
-          // Cap the number of pipes in memory for mobile
-          if (isMobile && pipesRef.current.length > 10) {
-            pipesRef.current = pipesRef.current.slice(-10);
-          }
           console.log('Pipe generated:', pipesRef.current[pipesRef.current.length - 1]);
         }
       }
