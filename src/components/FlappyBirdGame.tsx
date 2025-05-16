@@ -380,27 +380,10 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     // Make canvas fill the container, but smaller on mobile
     const updateCanvasSize = () => {
       if (canvas) {
-        if (isMobile) {
-          // Fixed 9:16 aspect ratio for mobile
-          let width = window.innerWidth;
-          let height = window.innerHeight;
-          if (width / height > MOBILE_ASPECT_RATIO) {
-            width = height * MOBILE_ASPECT_RATIO;
-          } else {
-            height = width / MOBILE_ASPECT_RATIO;
-          }
-          canvas.width = MOBILE_BASE_WIDTH;
-          canvas.height = MOBILE_BASE_HEIGHT;
-          canvas.style.width = width + 'px';
-          canvas.style.height = height + 'px';
-          canvas.style.display = 'block';
-          canvas.style.margin = '0 auto';
-        } else {
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-          canvas.style.width = '100vw';
-          canvas.style.height = '100vh';
-        }
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
       }
     };
     
