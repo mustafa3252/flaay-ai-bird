@@ -130,7 +130,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       });
       setBirdImageLoaded(false);
     };
-  }, [backgroundImage, currentBirdImage, birdState]);
+  }, [backgroundImage, currentBirdImage]);
   
   // Image preloading and initial setup
   useEffect(() => {
@@ -143,7 +143,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     
     // Initialize mute state
     setIsMuted(soundManager.getMuteState());
-  }, [backgroundImage, birdImageSrc, loadImages]);
+  }, [backgroundImage, birdImageSrc]);
   
   const pipesRef = useRef<Array<{
     x: number, 
@@ -740,7 +740,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   
   useEffect(() => {
     loadImages();
-  }, [backgroundImage, birdImageSrc, birdState]);
+  }, [backgroundImage, birdImageSrc]);
   
   useEffect(() => {
     console.log('backgroundImage updated:', backgroundImage);
