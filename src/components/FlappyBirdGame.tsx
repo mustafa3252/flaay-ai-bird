@@ -348,11 +348,11 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     x: 50 * MOBILE_SCALE,
     y: 150 * MOBILE_SCALE
   };
-  const MOBILE_PIPE = {
-    minWidth: 60 * MOBILE_SCALE,
-    maxWidth: 80 * MOBILE_SCALE,
-    gap: 160 * MOBILE_SCALE,
-    minPipeHeight: 60 * MOBILE_SCALE
+  const PIPE = {
+    minWidth: 60,
+    maxWidth: 80,
+    gap: 160,
+    minPipeHeight: 60
   };
   
   useEffect(() => {
@@ -375,14 +375,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     // Make canvas fill the container, but smaller on mobile
     const updateCanvasSize = () => {
       if (canvas) {
-        if (isMobile) {
-          // Use a much smaller, fixed aspect ratio for mobile
-          canvas.width = MOBILE_CANVAS_WIDTH;
-          canvas.height = MOBILE_CANVAS_HEIGHT;
-        } else {
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
-        }
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
       }
     };
     
@@ -390,18 +384,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
     window.addEventListener('resize', updateCanvasSize);
     
     let loopHandle: number | null = null;
-    let lastFrameTime = 0;
-    const mobileFrameDelay = 1000 / 24; // 24 FPS for mobile
     
     const gameLoop = (timestamp?: number) => {
-      // Throttle on mobile
-      if (isMobile) {
-        if (timestamp && timestamp - lastFrameTime < mobileFrameDelay) {
-          loopHandle = requestAnimationFrame(gameLoop);
-          return;
-        }
-        lastFrameTime = timestamp || 0;
-      }
       // Clear canvas and set background
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
@@ -448,12 +432,12 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
         // Generate pipes with difficulty-based parameters
         frameCountRef.current++;
         if (frameCountRef.current % Math.floor(100 / difficultyRef.current) === 0) {
-          const pipeGap = Math.max(MOBILE_PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10 * MOBILE_SCALE);
-          const minPipeHeight = MOBILE_PIPE.minPipeHeight;
+          const pipeGap = Math.max(PIPE.gap * 0.75, pipeGapRef.current - (difficultyRef.current - 1) * 10);
+          const minPipeHeight = PIPE.minPipeHeight;
           const maxPipeHeight = canvas.height - groundHeight - pipeGap - minPipeHeight;
           const topHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight)) + minPipeHeight;
           // Random width between min and max
-          const width = Math.floor(Math.random() * (MOBILE_PIPE.maxWidth - MOBILE_PIPE.minWidth)) + MOBILE_PIPE.minWidth;
+          const width = Math.floor(Math.random() * (PIPE.maxWidth - PIPE.minWidth)) + PIPE.minWidth;
           // No gradients on mobile
           const gradient = isMobile ? undefined : createPipeGradient(ctx, width);
           pipesRef.current.push({
@@ -565,7 +549,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
 
         // Draw both pipes
         drawPipe(pipe.x, pipe.topHeight, true);
-        drawPipe(pipe.x, pipe.topHeight + pipeGapRef.current, false);
+        drawPipe(pipe.x, pipe.topHeight + PIPE.gap, false);
         
         // Only do collision and scoring if game is started
         if (gameStarted && !gameOver) {
@@ -581,7 +565,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
             birdRef.current.x + birdRef.current.width > pipe.x &&
             birdRef.current.x < pipe.x + pipe.width &&
             (birdRef.current.y < pipe.topHeight || 
-             birdRef.current.y + birdRef.current.height > pipe.topHeight + pipeGapRef.current)
+             birdRef.current.y + birdRef.current.height > pipe.topHeight + PIPE.gap)
           ) {
             handleGameOver();
           }
@@ -674,17 +658,11 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       }
       
       if (!gameOver) {
-        if (isMobile) {
-          loopHandle = requestAnimationFrame(gameLoop);
-        } else {
         gameLoopRef.current = requestAnimationFrame(gameLoop);
-        }
       }
     };
     if (isMobile) {
       loopHandle = requestAnimationFrame(gameLoop);
-    } else {
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
     }
     return () => {
       window.removeEventListener('resize', updateCanvasSize);
