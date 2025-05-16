@@ -230,7 +230,7 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
   const PIPE = {
     minWidth: 60,
     maxWidth: 80,
-    gap: 160,
+    gap: isMobile ? 120 : 160,
     minPipeHeight: 60
   };
   
@@ -240,8 +240,8 @@ const FlappyBirdGame: React.FC<GameProps> = ({ onExit }) => {
       x: 50,
       y: 150,
       velocity: 0,
-      gravity: isMobile ? 0.55 : 0.35,
-      flapStrength: isMobile ? -9.5 : -7.5,
+      gravity: isMobile ? 0.30 : 0.35,
+      flapStrength: -7.5,
       width: isMobile ? 40 : 60,
       height: isMobile ? 30 : 45,
       frame: 0,
